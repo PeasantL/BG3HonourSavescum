@@ -4,9 +4,10 @@ import getpass
 import json
 from datetime import datetime
 import argparse
-import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+import threading
+import time  # Don't forget to import time for the sleep function
 
 # Simplify JSON handling and argparse setup
 def setup_argparse():
@@ -38,17 +39,38 @@ def backup_save_file(selected_save_path):
     backup_dir_name = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     backup_path = os.path.join("./backup", backup_dir_name, os.path.basename(selected_save_path))
     os.makedirs(os.path.dirname(backup_path), exist_ok=True)
-    shutil.copytree(selected_save_path, backup_path)
+    shutil.copytree(selected_save_path, backup_path, dirs_exist_ok=True)  # Ensure dirs_exist_ok=True for repeated backups
     print("\nBackup performed in folder:", backup_dir_name)
+
+class BackupTimer:
+    def __init__(self, wait_time, target_function, args=None):
+        self._timer = None
+        self.wait_time = wait_time
+        self.target_function = target_function
+        self.args = args if args is not None else []
+        self.lock = threading.Lock()
+
+    def _run(self):
+        with self.lock:
+            self.target_function(*self.args)
+            self._timer = None
+
+    def reset(self):
+        with self.lock:
+            if self._timer is not None:
+                self._timer.cancel()
+            self._timer = threading.Timer(self.wait_time, self._run)
+            self._timer.start()
 
 class ChangeHandler(FileSystemEventHandler):
     def __init__(self, path):
         self.path = path
+        # Adjust the wait_time to suit the frequency of file changes
+        self.backup_timer = BackupTimer(5, backup_save_file, [path])
 
-    def on_any_event(self, event):
+    def on_modified(self, event):
         if not event.is_directory:
-            backup_save_file(self.path)
-
+            self.backup_timer.reset()
 def main():
     args = setup_argparse()
     data = load_or_initialize_config()
@@ -66,16 +88,15 @@ def main():
     else:
         selected_save_path = os.path.join(directory_path, data['file_savename'])
 
-    # Set up monitoring
+    # Set up monitoring for modifications
     event_handler = ChangeHandler(selected_save_path)
     observer = Observer()
     observer.schedule(event_handler, path=selected_save_path, recursive=True)
     observer.start()
-    print("Monitoring for changes. Press Ctrl+C to stop.")
+    print("Monitoring for modifications. Press Ctrl+C to stop.")
     try:
         while True:
-            # Keeps the script running
-            time.sleep(120)
+            time.sleep(60)
     except KeyboardInterrupt:
         observer.stop()
     observer.join()
