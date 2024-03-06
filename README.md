@@ -6,19 +6,20 @@ Currently, it only works with honour mode.
 
 Run with:
 ```
-function test() {
-  console.log("python ./main.py");
-}
+python ./main.py
 ```
 Select a save on the first load.
 
 To select a new save to monitor:
 ```
-function test() {
-  console.log("python ./main.py --reselect");
-}
+python ./main.py --reselect
 ```
 
 
-
 Todo:
+Change execution to bat/shell file to remove the need for:
+```
+pip install watchdog
+```
+
+Maintain only a set number of backups
