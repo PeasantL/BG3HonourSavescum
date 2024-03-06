@@ -1,74 +1,63 @@
-"""
-Auto backups autosave for Baldur's Gate 3 Honor Mode
-
-Intention -> Track each autosave,
-             Make a backup each time the game autosaves (ie. When the application is closed)
-             Load Save
-             Todo: import JSON file for data recording 
-    
-Todo ->
-
-Error checking
-Input save manipulation
-"""
-
 import shutil
 import os
 import getpass
 import json
+from datetime import datetime
+import argparse  # 
 
+# Setup argparse
+parser = argparse.ArgumentParser(description='Backup autosave for Baldur\'s Gate 3 Honor Mode')
+parser.add_argument('--reselect', help='Reselect save file', action='store_true')
+args = parser.parse_args()
 
-#Check save state json
+# Check save state json
 filename = "config.json"
 
-#Data structure -> move to where data is assigned
+# Data structure
 data = {
-        "file_savename": "null",
-    }
+    "file_savename": "null",
+}
 
-
-#Save new config
 def writeJson(data):
-    with open(filename, 'w') as json_file: 
+    with open(filename, 'w') as json_file:
         json.dump(data, json_file, indent=4)
         print(f"'{filename}' written.")
 
-
-#Check if the file exists
 if os.path.exists(filename):
-    # File exists, so open it and read the data
     with open(filename, 'r') as json_file:
         data = json.load(json_file)
-        print(f"Currently monitored save file: {data['file_savename']}" )
+        print(f"Currently monitored save file: {data['file_savename']}")
 else:
     writeJson(data)
 
-        
-#Get the current user's login name, for searching if the files exists
 username = getpass.getuser()
 directory_path = f"C:\\Users\\{username}\\AppData\\Local\\Larian Studios\\Baldur's Gate 3\\PlayerProfiles\\Public\\Savegames\\Story"
 if os.path.exists(directory_path):
     print(f"Saves for {username} found.")
 
-
-#Displaying all available files
-save_list_paths  = []
-for count, sub_directory in enumerate(os.listdir(directory_path)):
-    save_list_paths.append(os.path.join(directory_path, sub_directory))
-    print(f"({count}) {sub_directory}")
- 
-
-#To do, add error catching, logic
-if data["file_savename"] == "null": 
+# Function to select a save file
+def select_save_file():
+    save_list_paths = []
+    for count, sub_directory in enumerate(os.listdir(directory_path)):
+        save_list_paths.append(os.path.join(directory_path, sub_directory))
+        print(f"({count}) {sub_directory}")
+    
     user_input = input("Select a save file to monitor: ")
-    data["file_savename"] = os.path.basename(save_list_paths[int(user_input)])
+    return save_list_paths[int(user_input)]
+
+# Reselect save file if the flag is raised or if file_savename is null
+if args.reselect or data["file_savename"] == "null":
+    selected_save_path = select_save_file()
+    data["file_savename"] = os.path.basename(selected_save_path)
     writeJson(data)
-    print("You entered:", os.path.basename(save_list_paths[int(user_input)]))    
-    
-    
-#Backup example 
-if os.path.exists( os.path.join("./backup", os.path.basename(save_list_paths[0])) ):
-    print("\nBackup already exists for the current save, backup not performed.\n")
+    print("Monitoring save file:", os.path.basename(selected_save_path))
 else:
-    print("\nBackup performed.\n")
-    shutil.copytree(save_list_paths[0], os.path.join("./backup", os.path.basename(save_list_paths[0])))
+    selected_save_path = os.path.join(directory_path, data['file_savename'])
+
+# Backup the selected save file
+backup_directory_name = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+backup_path = os.path.join("./backup", backup_directory_name, os.path.basename(selected_save_path))
+if not os.path.exists(backup_path):
+    os.makedirs(os.path.dirname(backup_path), exist_ok=True)  # Ensure the parent directory exists
+    shutil.copytree(selected_save_path, backup_path)
+    print("\nBackup performed in folder:", backup_directory_name)
