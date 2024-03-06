@@ -2,14 +2,23 @@ Backs up an honour save file whenever a save happens in Baldur's Gate 3.
 
 Run concurrently when playing the game to backup.
 
-Currently only works with honour mode.
+Currently, it only works with honour mode.
 
 Run with:
-
-python ./main.py
-
-Select a save on first load.
+```
+function test() {
+  console.log("python ./main.py");
+}
+```
+Select a save on the first load.
 
 To select a new save to monitor:
+```
+function test() {
+  console.log("python ./main.py --reselect");
+}
+```
 
-python ./main.py --reselect
+
+
+Todo:
