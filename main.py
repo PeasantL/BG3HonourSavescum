@@ -4,6 +4,9 @@ import getpass
 import json
 from datetime import datetime
 import argparse
+import time
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 # Simplify JSON handling and argparse setup
 def setup_argparse():
@@ -38,6 +41,14 @@ def backup_save_file(selected_save_path):
     shutil.copytree(selected_save_path, backup_path)
     print("\nBackup performed in folder:", backup_dir_name)
 
+class ChangeHandler(FileSystemEventHandler):
+    def __init__(self, path):
+        self.path = path
+
+    def on_any_event(self, event):
+        if not event.is_directory:
+            backup_save_file(self.path)
+
 def main():
     args = setup_argparse()
     data = load_or_initialize_config()
@@ -55,9 +66,19 @@ def main():
     else:
         selected_save_path = os.path.join(directory_path, data['file_savename'])
 
-    print("Currently monitoring: " + data['file_savename'])
-
-    backup_save_file(selected_save_path)
+    # Set up monitoring
+    event_handler = ChangeHandler(selected_save_path)
+    observer = Observer()
+    observer.schedule(event_handler, path=selected_save_path, recursive=True)
+    observer.start()
+    print("Monitoring for changes. Press Ctrl+C to stop.")
+    try:
+        while True:
+            # Keeps the script running
+            time.sleep(120)
+    except KeyboardInterrupt:
+        observer.stop()
+    observer.join()
 
 if __name__ == "__main__":
     main()
